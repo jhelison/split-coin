@@ -91,7 +91,7 @@ contract TeamBalance {
         // TODO: Check for misbehavior
 
         // Revert if balance is zero
-        uint256 availableBalance = _Calculatebalance(
+        uint256 availableBalance = _calculatebalance(
             erc20,
             newBalance,
             _address
@@ -121,7 +121,7 @@ contract TeamBalance {
         // Get the current balance
         uint256 newBalance = erc20.balanceOf(address(this));
 
-        return _Calculatebalance(erc20, newBalance, _address);
+        return _calculatebalance(erc20, newBalance, _address);
     }
 
     /**
@@ -130,7 +130,7 @@ contract TeamBalance {
      * @param newBalance The current balance of the token
      * @return uint256 The amount available to withdraw
      */
-    function _Calculatebalance(
+    function _calculatebalance(
         IERC20 erc20,
         uint256 newBalance,
         address _address
