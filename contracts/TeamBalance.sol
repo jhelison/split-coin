@@ -7,7 +7,7 @@ contract TeamBalance {
     // Owner is always the parent contract
     address public owner;
 
-    // Current list of withdrwan balances
+    // Current list of withdrawn balances
     mapping(address => uint256) public withdrawn;
 
     // Balances tracking
@@ -91,7 +91,11 @@ contract TeamBalance {
         // TODO: Check for misbehavior
 
         // Revert if balance is zero
-        uint256 availableBalance = _balanceERC20(erc20, newBalance, _address);
+        uint256 availableBalance = _Calculatebalance(
+            erc20,
+            newBalance,
+            _address
+        );
         if (availableBalance == 0)
             revert NoBalanceToWithdraw("No balance available to withdraw");
 
@@ -117,16 +121,16 @@ contract TeamBalance {
         // Get the current balance
         uint256 newBalance = erc20.balanceOf(address(this));
 
-        return _balanceERC20(erc20, newBalance, _address);
+        return _Calculatebalance(erc20, newBalance, _address);
     }
 
     /**
      * @dev Internal function to calculate the available balance to withdraw.
-     * @param erc20 The ERC20 token to check the balance for
+     * @param erc20 The ERC20 token to check the balance for (0x0 is the contract eth balance)
      * @param newBalance The current balance of the token
      * @return uint256 The amount available to withdraw
      */
-    function _balanceERC20(
+    function _Calculatebalance(
         IERC20 erc20,
         uint256 newBalance,
         address _address
