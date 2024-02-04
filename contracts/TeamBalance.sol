@@ -14,22 +14,18 @@ contract TeamBalance {
     mapping(IERC20 => uint256) public totalBalance;
 
     // Team proportion
-    mapping(address => uint8) public team;
+    mapping(address => uint8) public teamProportion;
 
     // Custom errors
     error NotOwner();
     error InvalidAddress(string message);
     error LengthMismatch(string message);
-    error WrongProportion(string message);
+    error BadProportion(string message);
     error NoBalanceToWithdraw(string message);
     error NoUserProportion(string message);
 
     // Events
-    event Withdrawal(
-        address indexed user,
-        IERC20 indexed erc20,
-        uint256 amount
-    );
+    event Withdrawn(address indexed user, IERC20 indexed erc20, uint256 amount);
 
     /**
      * @dev Constructor for TeamBalanceFactory
@@ -41,10 +37,13 @@ contract TeamBalance {
      */
     constructor(address[] memory _team, uint8[] memory _proportions) {
         // Set the ownership
-        if (msg.sender == address(0))
-            revert InvalidAddress("Owner address cannot be zero");
         owner = msg.sender;
 
+        // Check if team lengh is zero
+        if (_team.length == 0)
+            revert LengthMismatch("Team length must be bigger than 0");
+
+        // Check the proportion
         if (_team.length != _proportions.length)
             revert LengthMismatch("Team and proportions length mismatch");
 
@@ -54,13 +53,13 @@ contract TeamBalance {
             if (_team[i] == address(0))
                 revert InvalidAddress("Team member address cannot be zero");
 
-            team[_team[i]] = _proportions[i];
+            teamProportion[_team[i]] = _proportions[i];
             totalProportion = totalProportion + _proportions[i];
         }
 
-        // Total proporcion must be equal to 100
+        // Total proportion must be equal to 100
         if (totalProportion != 100)
-            revert WrongProportion("Total proportion must equal 100");
+            revert BadProportion("Total proportion must equal 100");
     }
 
     /**
@@ -80,29 +79,30 @@ contract TeamBalance {
      * - The caller must have a non-zero proportion.
      * - There must be a balance available to withdraw.
      */
-    function withdrawERC20(IERC20 erc20) external isOwner {
+    function withdrawERC20(IERC20 erc20, address _address) external isOwner {
         // Check the user proportion
-        uint8 userProportion = team[msg.sender];
+        uint8 userProportion = teamProportion[_address];
         if (userProportion == 0)
             revert NoUserProportion("User has no proportion assigned");
 
         // Get the current balance
         uint256 newBalance = erc20.balanceOf(address(this));
+
         // TODO: Check for misbehavior
 
         // Revert if balance is zero
-        uint256 availableBalance = _availableToWithdraw(erc20, newBalance);
+        uint256 availableBalance = _balanceERC20(erc20, newBalance, _address);
         if (availableBalance == 0)
             revert NoBalanceToWithdraw("No balance available to withdraw");
 
         // Post tx cleanup
         totalBalance[erc20] = totalBalance[erc20] + availableBalance;
-        withdrawn[msg.sender] = withdrawn[msg.sender] + availableBalance;
+        withdrawn[_address] = withdrawn[_address] + availableBalance;
 
         // Do the transfer in the end
-        erc20.transfer(msg.sender, availableBalance);
+        erc20.transfer(_address, availableBalance);
 
-        emit Withdrawal(msg.sender, erc20, availableBalance);
+        emit Withdrawn(_address, erc20, availableBalance);
     }
 
     /**
@@ -110,11 +110,14 @@ contract TeamBalance {
      * @param erc20 The ERC20 token to check the balance for
      * @return uint256 The amount available to withdraw
      */
-    function availableToWithdraw(IERC20 erc20) public view returns (uint256) {
+    function balanceERC20(
+        IERC20 erc20,
+        address _address
+    ) public view returns (uint256) {
         // Get the current balance
         uint256 newBalance = erc20.balanceOf(address(this));
 
-        return _availableToWithdraw(erc20, newBalance);
+        return _balanceERC20(erc20, newBalance, _address);
     }
 
     /**
@@ -123,13 +126,15 @@ contract TeamBalance {
      * @param newBalance The current balance of the token
      * @return uint256 The amount available to withdraw
      */
-    function _availableToWithdraw(
+    function _balanceERC20(
         IERC20 erc20,
-        uint256 newBalance
+        uint256 newBalance,
+        address _address
     ) internal view returns (uint256) {
         // Calculate the new balance based on the proportion
         uint256 balanceUntilNow = totalBalance[erc20] + newBalance;
-        uint256 entitledAmount = (balanceUntilNow * team[msg.sender]) / 100;
-        return entitledAmount - withdrawn[msg.sender];
+        uint256 entitledAmount = (balanceUntilNow * teamProportion[_address]) /
+            100;
+        return entitledAmount - withdrawn[_address];
     }
 }
